@@ -1,0 +1,186 @@
+/* ── Fonts ─────────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* ── CSS Variables: Dark Theme (default) ──────────────────────────────────── */
+:root, [data-theme="dark"] {
+  --bg-primary:        #0d1117;
+  --bg-secondary:      #161b22;
+  --bg-tertiary:       #21262d;
+  --border-color:      #30363d;
+  --text-primary:      #e6edf3;
+  --text-secondary:    #8b949e;
+  --text-muted:        #6e7681;
+  --accent-primary:    #58a6ff;
+  --accent-secondary:  #a371f7;
+  --error-color:       #f85149;
+  --success-color:     #3fb950;
+  --warning-color:     #d29922;
+  --code-bg:           #0d1117;
+}
+
+/* ── CSS Variables: Light Theme ───────────────────────────────────────────── */
+[data-theme="light"] {
+  --bg-primary:        #ffffff;
+  --bg-secondary:      #f6f8fa;
+  --bg-tertiary:       #eaeef2;
+  --border-color:      #d0d7de;
+  --text-primary:      #1f2328;
+  --text-secondary:    #636c76;
+  --text-muted:        #9198a1;
+  --accent-primary:    #0969da;
+  --accent-secondary:  #8250df;
+  --error-color:       #cf222e;
+  --success-color:     #1a7f37;
+  --warning-color:     #9a6700;
+  --code-bg:           #f6f8fa;
+}
+
+/* ── Reset & Base ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  transition: background 0.2s, color 0.2s;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Angular Material Overrides ───────────────────────────────────────────── */
+.mat-mdc-card {
+  background: var(--bg-secondary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.mat-mdc-form-field {
+  --mdc-outlined-text-field-label-text-color: var(--text-secondary);
+  --mdc-outlined-text-field-input-text-color: var(--text-primary);
+  --mdc-outlined-text-field-outline-color: var(--border-color);
+  --mdc-outlined-text-field-hover-outline-color: var(--text-secondary);
+  --mdc-outlined-text-field-focus-outline-color: var(--accent-primary);
+  --mdc-outlined-text-field-caret-color: var(--accent-primary);
+  --mdc-outlined-text-field-container-shape: 8px;
+}
+
+.mat-mdc-menu-panel {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-color) !important;
+}
+
+.mat-mdc-menu-item { color: var(--text-primary) !important; }
+.mat-mdc-menu-item:hover { background: var(--bg-tertiary) !important; }
+
+.mat-mdc-table {
+  background: transparent !important;
+  color: var(--text-primary) !important;
+}
+
+.mat-mdc-header-row { background: var(--bg-tertiary) !important; }
+.mat-mdc-header-cell { color: var(--text-secondary) !important; font-weight: 600 !important; font-size: 12px !important; text-transform: uppercase; letter-spacing: 0.05em; border-bottom-color: var(--border-color) !important; }
+.mat-mdc-row { border-bottom-color: var(--border-color) !important; }
+.mat-mdc-row:hover { background: var(--bg-tertiary) !important; }
+.mat-mdc-cell { color: var(--text-primary) !important; }
+
+.mat-mdc-paginator {
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+}
+
+.mat-mdc-select-value { color: var(--text-primary) !important; }
+.mat-mdc-select-panel { background: var(--bg-secondary) !important; }
+.mat-mdc-option { color: var(--text-primary) !important; }
+.mat-mdc-option:hover { background: var(--bg-tertiary) !important; }
+.mat-mdc-option.mdc-list-item--selected { background: rgba(88,166,255,.1) !important; }
+
+.mat-mdc-snack-bar-container { --mdc-snackbar-container-color: var(--bg-tertiary); --mdc-snackbar-supporting-text-color: var(--text-primary); }
+.error-snack .mat-mdc-snack-bar-container { --mdc-snackbar-container-color: rgba(248,81,73,.15); border: 1px solid rgba(248,81,73,.3); }
+
+.mat-mdc-tab-group { --mdc-tab-indicator-active-indicator-color: var(--accent-primary); }
+.mat-mdc-tab-label-container { border-bottom: 1px solid var(--border-color) !important; }
+.mdc-tab__text-label { color: var(--text-secondary) !important; }
+.mdc-tab--active .mdc-tab__text-label { color: var(--text-primary) !important; }
+
+.mat-mdc-chip { background: var(--bg-tertiary) !important; color: var(--text-secondary) !important; }
+.mat-mdc-chip.selected { background: rgba(88,166,255,.15) !important; color: var(--accent-primary) !important; }
+
+/* ── Toolbar override ─────────────────────────────────────────────────────── */
+.mat-toolbar { background: var(--bg-secondary) !important; color: var(--text-primary) !important; }
+
+/* ── Common utility classes ───────────────────────────────────────────────── */
+.text-primary   { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-muted     { color: var(--text-muted); }
+.text-accent    { color: var(--accent-primary); }
+.text-success   { color: var(--success-color); }
+.text-error     { color: var(--error-color); }
+.text-warning   { color: var(--warning-color); }
+
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Verdict colors */
+.verdict-ac  { color: var(--success-color); }
+.verdict-wa  { color: var(--error-color); }
+.verdict-tle { color: var(--warning-color); }
+.verdict-mle { color: #ffa657; }
+.verdict-ce  { color: #ff7b72; }
+.verdict-re  { color: #d2a8ff; }
+
+/* Difficulty colors */
+.diff-easy   { color: var(--success-color); }
+.diff-medium { color: var(--warning-color); }
+.diff-hard   { color: var(--error-color); }
+
+/* Code blocks */
+pre, code {
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--code-bg);
+  border-radius: 6px;
+}
+pre {
+  padding: 16px;
+  overflow-x: auto;
+  border: 1px solid var(--border-color);
+  font-size: 13px;
+  line-height: 1.6;
+}
+code { padding: 2px 6px; font-size: 0.9em; }
+pre code { background: none; padding: 0; }
+
+/* ── Monaco Editor container ─────────────────────────────────────────────── */
+.monaco-editor-container {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* ── Animations ──────────────────────────────────────────────────────────── */
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to   { background-position:  200% 0; }
+}
+
+.fade-in { animation: fadeIn 0.3s ease-out; }
+
+/* Skeleton loader */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-tertiary) 25%, var(--bg-secondary) 50%, var(--bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 6px;
+}

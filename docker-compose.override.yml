@@ -1,0 +1,48 @@
+version: '3.9'
+
+# ── Local Development Overrides ───────────────────────────────────────────────
+# Usage: docker compose up  (automatically picks up this file)
+# This enables hot-reload for both frontend and backend.
+
+services:
+  api:
+    build:
+      target: development
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+    command: npm run dev
+    ports:
+      - "3000:3000"   # direct access for debugging
+
+  frontend:
+    build:
+      target: development
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+    command: npm start -- --host 0.0.0.0 --port 4200
+    ports:
+      - "4200:4200"
+
+  judge0_worker:
+    deploy:
+      replicas: 1    # single worker in dev
+
+  nginx:
+    ports:
+      - "80:80"       # no SSL in dev
+    volumes:
+      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+
+  postgres:
+    ports:
+      - "5432:5432"   # expose for GUI tools (TablePlus etc.)
+
+  redis:
+    ports:
+      - "6379:6379"   # expose for redis-cli

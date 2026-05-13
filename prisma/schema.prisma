@@ -1,0 +1,359 @@
+// CodeArena - Prisma Schema
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum Role {
+  USER
+  SETTER
+  ADMIN
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum Verdict {
+  PENDING
+  ACCEPTED
+  WRONG_ANSWER
+  TIME_LIMIT_EXCEEDED
+  MEMORY_LIMIT_EXCEEDED
+  RUNTIME_ERROR
+  COMPILATION_ERROR
+  SKIPPED
+}
+
+enum ContestType {
+  ICPC
+  IOI
+}
+
+enum ContestStatus {
+  DRAFT
+  REGISTRATION
+  LIVE
+  ENDED
+  RESULTS
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  ELITE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  CANCELLED
+  PAST_DUE
+  TRIALING
+}
+
+enum Language {
+  CPP
+  JAVA
+  PYTHON3
+  JAVASCRIPT
+  GO
+  RUST
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model User {
+  id                String    @id @default(cuid())
+  email             String    @unique
+  username          String    @unique
+  passwordHash      String?
+  displayName       String?
+  avatarUrl         String?
+  bio               String?
+  githubId          String?   @unique
+  googleId          String?   @unique
+  role              Role      @default(USER)
+  isEmailVerified   Boolean   @default(false)
+  emailVerifyToken  String?
+  resetPasswordToken String?
+  resetPasswordExpiry DateTime?
+  rating            Int       @default(1500)
+  maxRating         Int       @default(1500)
+  totalSolved       Int       @default(0)
+  walletCredits     Int       @default(0)
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  refreshTokens      RefreshToken[]
+  submissions        Submission[]
+  contestParticipants ContestParticipant[]
+  payments           Payment[]
+  subscription       Subscription?
+  achievements       UserAchievement[]
+  ratingHistory      Rating[]
+  problems           Problem[]            @relation("ProblemSetter")
+
+  @@index([rating(sort: Desc)])
+  @@index([username])
+  @@index([email])
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+}
+
+model Problem {
+  id              String     @id @default(cuid())
+  slug            String     @unique
+  title           String
+  description     String     // Markdown
+  difficulty      Difficulty
+  timeLimit       Int        @default(2000)  // ms
+  memoryLimit     Int        @default(256)   // MB
+  tags            String[]
+  constraints     String?
+  sampleInput     String?
+  sampleOutput    String?
+  explanation     String?
+  isPublished     Boolean    @default(false)
+  isSpecialJudge  Boolean    @default(false)
+  checkerScript   String?
+  acceptedCount   Int        @default(0)
+  submissionCount Int        @default(0)
+  setterId        String
+  deletedAt       DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  setter          User       @relation("ProblemSetter", fields: [setterId], references: [id])
+  testCases       TestCase[]
+  submissions     Submission[]
+  contestProblems ContestProblem[]
+
+  @@index([slug])
+  @@index([difficulty])
+  @@index([isPublished])
+  @@index([tags])
+}
+
+model TestCase {
+  id           String  @id @default(cuid())
+  problemId    String
+  input        String  // encrypted for hidden
+  output       String  // encrypted for hidden
+  isHidden     Boolean @default(false)
+  isSample     Boolean @default(false)
+  points       Int     @default(0)
+  explanation  String?
+  orderIndex   Int     @default(0)
+  createdAt    DateTime @default(now())
+
+  problem      Problem @relation(fields: [problemId], references: [id], onDelete: Cascade)
+
+  @@index([problemId])
+}
+
+model Submission {
+  id           String   @id @default(cuid())
+  userId       String
+  problemId    String
+  contestId    String?
+  language     Language
+  code         String
+  verdict      Verdict  @default(PENDING)
+  score        Float    @default(0)
+  executionTime Int?    // ms
+  memoryUsed   Int?     // KB
+  testsPassed  Int      @default(0)
+  testsTotal   Int      @default(0)
+  errorOutput  String?
+  judge0Token  String?  // Judge0 submission token
+  isContestSub Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User     @relation(fields: [userId], references: [id])
+  problem      Problem  @relation(fields: [problemId], references: [id])
+  contest      Contest? @relation(fields: [contestId], references: [id])
+
+  @@index([userId])
+  @@index([problemId])
+  @@index([contestId])
+  @@index([verdict])
+  @@index([createdAt(sort: Desc)])
+  @@index([userId, problemId])
+}
+
+model Contest {
+  id              String        @id @default(cuid())
+  slug            String        @unique
+  title           String
+  description     String
+  type            ContestType   @default(ICPC)
+  status          ContestStatus @default(DRAFT)
+  startTime       DateTime
+  endTime         DateTime
+  registrationEnd DateTime?
+  entryFee        Int           @default(0) // cents
+  prizePool       Int           @default(0) // cents
+  maxParticipants Int?
+  isPublic        Boolean       @default(true)
+  stripeProductId String?
+  stripePriceId   String?
+  createdById     String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  problems        ContestProblem[]
+  participants    ContestParticipant[]
+  submissions     Submission[]
+  payments        Payment[]
+
+  @@index([status])
+  @@index([startTime])
+  @@index([slug])
+}
+
+model ContestProblem {
+  id          String   @id @default(cuid())
+  contestId   String
+  problemId   String
+  label       String   // A, B, C, ...
+  points      Int      @default(100)
+  unlockAt    DateTime? // for staged reveal
+  orderIndex  Int      @default(0)
+
+  contest     Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  problem     Problem  @relation(fields: [problemId], references: [id])
+
+  @@unique([contestId, problemId])
+  @@unique([contestId, label])
+  @@index([contestId])
+}
+
+model ContestParticipant {
+  id           String   @id @default(cuid())
+  contestId    String
+  userId       String
+  score        Float    @default(0)
+  penalty      Int      @default(0) // ICPC penalty time in minutes
+  rank         Int?
+  isDisqualified Boolean @default(false)
+  registeredAt DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  contest      Contest  @relation(fields: [contestId], references: [id])
+  user         User     @relation(fields: [userId], references: [id])
+
+  @@unique([contestId, userId])
+  @@index([contestId, score(sort: Desc)])
+  @@index([userId])
+}
+
+model Payment {
+  id                String        @id @default(cuid())
+  userId            String
+  contestId         String?
+  amount            Int           // cents
+  currency          String        @default("usd")
+  status            PaymentStatus @default(PENDING)
+  stripeSessionId   String?       @unique
+  stripePaymentIntentId String?
+  stripeInvoiceId   String?
+  description       String?
+  metadata          Json?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  user              User          @relation(fields: [userId], references: [id])
+  contest           Contest?      @relation(fields: [contestId], references: [id])
+
+  @@index([userId])
+  @@index([stripeSessionId])
+  @@index([status])
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  userId               String             @unique
+  plan                 SubscriptionPlan   @default(FREE)
+  status               SubscriptionStatus @default(ACTIVE)
+  stripeSubscriptionId String?            @unique
+  stripeCustomerId     String?
+  currentPeriodStart   DateTime?
+  currentPeriodEnd     DateTime?
+  cancelAtPeriodEnd    Boolean            @default(false)
+  dailySubmissions     Int                @default(0)
+  dailySubmissionReset DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  user                 User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([stripeSubscriptionId])
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  title       String
+  description String
+  iconUrl     String?
+  points      Int      @default(10)
+  createdAt   DateTime @default(now())
+
+  userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  earnedAt      DateTime @default(now())
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+
+  @@unique([userId, achievementId])
+  @@index([userId])
+}
+
+model Rating {
+  id          String   @id @default(cuid())
+  userId      String
+  contestId   String?
+  oldRating   Int
+  newRating   Int
+  delta       Int
+  rank        Int?
+  createdAt   DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}

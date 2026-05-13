@@ -1,0 +1,189 @@
+version: '3.9'
+
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: codearena_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-codearena}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-codearena_secret}
+      POSTGRES_DB: ${POSTGRES_DB:-codearena}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-codearena}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - codearena_net
+
+  # ── Redis ────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: codearena_redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-redis_secret} --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_secret}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - codearena_net
+
+  # ── Judge0 CE Server ─────────────────────────────────────────────────────────
+  judge0:
+    image: judge0/judge0:1.13.0
+    container_name: codearena_judge0
+    restart: unless-stopped
+    privileged: true
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: judge0
+      POSTGRES_USER: ${JUDGE0_DB_USER:-judge0}
+      POSTGRES_PASSWORD: ${JUDGE0_DB_PASSWORD:-judge0_secret}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secret}
+      JUDGE0_AUTHN_HEADER: X-Auth-Token
+      JUDGE0_AUTHN_TOKEN: ${JUDGE0_AUTH_TOKEN:-judge0_token}
+      RAILS_MAX_THREADS: 4
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2358/health_check"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    networks:
+      - codearena_net
+
+  # ── Judge0 Worker (2 replicas in prod, 1 in dev override) ───────────────────
+  judge0_worker:
+    image: judge0/judge0:1.13.0
+    restart: unless-stopped
+    privileged: true
+    command: ["./scripts/workers"]
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: judge0
+      POSTGRES_USER: ${JUDGE0_DB_USER:-judge0}
+      POSTGRES_PASSWORD: ${JUDGE0_DB_PASSWORD:-judge0_secret}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_secret}
+    deploy:
+      replicas: 2
+    depends_on:
+      judge0:
+        condition: service_healthy
+    networks:
+      - codearena_net
+
+  # ── Backend API ──────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: codearena_api
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-codearena}:${POSTGRES_PASSWORD:-codearena_secret}@postgres:5432/${POSTGRES_DB:-codearena}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-redis_secret}@redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      JUDGE0_URL: http://judge0:2358
+      JUDGE0_AUTH_TOKEN: ${JUDGE0_AUTH_TOKEN:-judge0_token}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      SENDGRID_FROM_EMAIL: ${SENDGRID_FROM_EMAIL:-noreply@codearena.dev}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      PORT: 3000
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      judge0:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - codearena_net
+
+  # ── Frontend (Angular served via Nginx) ──────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+    container_name: codearena_frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - codearena_net
+
+  # ── Nginx Reverse Proxy ──────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: codearena_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - api
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - codearena_net
+
+# ── Volumes ──────────────────────────────────────────────────────────────────
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  nginx_logs:
+    driver: local
+
+# ── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  codearena_net:
+    driver: bridge
